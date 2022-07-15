@@ -1,0 +1,131 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2022-04-22 15:27:38.166558",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "company_gstin",
+  "column_break_3",
+  "purchase_period",
+  "purchase_from_date",
+  "purchase_to_date",
+  "action",
+  "column_break_6",
+  "inward_supply_period",
+  "inward_supply_from_date",
+  "inward_supply_to_date",
+  "reconciliation_data",
+  "section_break_11",
+  "summary_data"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "company_gstin",
+   "fieldtype": "Autocomplete",
+   "label": "Company GSTIN"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Current Financial Year",
+   "fieldname": "purchase_period",
+   "fieldtype": "Select",
+   "label": "Purchase Period",
+   "options": "\nCurrent Month\nCurrent Quarter\nCurrent Financial Year\nPrevious Month\nPrevious Quarter\nPrevious Financial Year\nCustom"
+  },
+  {
+   "depends_on": "eval: doc.purchase_period == 'Custom'",
+   "fieldname": "purchase_from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "read_only_depends_on": "eval: doc.purchase_period != 'Custom'"
+  },
+  {
+   "depends_on": "eval: doc.purchase_period == 'Custom'",
+   "fieldname": "purchase_to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "read_only_depends_on": "eval: doc.purchase_period != 'Custom'"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Current Financial Year",
+   "fieldname": "inward_supply_period",
+   "fieldtype": "Select",
+   "label": "Inward Supply Period",
+   "options": "\nCurrent Month\nCurrent Quarter\nCurrent Financial Year\nPrevious Month\nPrevious Quarter\nPrevious Financial Year\nCustom"
+  },
+  {
+   "depends_on": "eval: doc.inward_supply_period == 'Custom'",
+   "fieldname": "inward_supply_from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "read_only_depends_on": "eval: doc.inward_supply_period != 'Custom'"
+  },
+  {
+   "depends_on": "eval: doc.inward_supply_period == 'Custom'",
+   "fieldname": "inward_supply_to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "read_only_depends_on": "eval: doc.inward_supply_period != 'Custom'"
+  },
+  {
+   "fieldname": "section_break_11",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "summary_data",
+   "fieldtype": "HTML"
+  },
+  {
+   "fieldname": "reconciliation_data",
+   "fieldtype": "Code",
+   "hidden": 1,
+   "label": "Reconciliation Data"
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Autocomplete",
+   "label": "Action",
+   "options": "No Action\nAccept My Values\nAccept Supplier Values\nReject\nIgnore\nPending"
+  }
+ ],
+ "hide_toolbar": 1,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2022-07-15 10:33:08.877979",
+ "modified_by": "Administrator",
+ "module": "GST India",
+ "name": "Purchase Reconciliation Tool",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
