@@ -29,12 +29,14 @@ frappe.ui.form.on("Purchase Reconciliation Tool", {
         if (frm.doc.company) set_gstin_options(frm);
     },
 
-    purchase_period(frm) {
-        fetch_date_range(frm, "purchase");
+    async purchase_period(frm) {
+        await fetch_date_range(frm, "purchase");
+        set_options_label(frm, "purchase");
     },
 
-    inward_supply_period(frm) {
-        fetch_date_range(frm, "inward_supply");
+    async inward_supply_period(frm) {
+        await fetch_date_range(frm, "inward_supply");
+        set_options_label(frm, "inward_supply");
     },
 });
 
@@ -114,9 +116,66 @@ async function fetch_date_range(frm, field_prefix) {
 
     const { message } = await frm.call("get_date_range", { period });
     if (!message) return;
-
+    console.log(message);
     frm.set_value(from_date_field, message[0]);
     frm.set_value(to_date_field, message[1]);
+}
+
+async function set_options_label(frm, field_prefix) {
+    const from_date_field = field_prefix + "_from_date";
+    const to_date_field = field_prefix + "_to_date";
+    const period_field = field_prefix + "_period";
+
+    let start_date = frm.doc[from_date_field];
+    let end_date = frm.doc[to_date_field];
+    let period = frm.doc[period_field];
+
+    if (in_list(["Custom", ""], period)) return;
+
+    let { message } = await frm.call({
+        method: "_get_periods",
+        args: {
+            start_date: start_date,
+            end_date: end_date
+        },
+    });
+
+    if (!message) return;
+
+    // This is for onload
+    // let period_data = "";
+    // frm.get_docfield(period_field).options.split("\n").forEach((option) => {
+    //     console.log(option);
+    //     if (in_list(["Custom", ""], option)) return;
+    //     if (option == "Current Month") {
+    //         period_data = `${message.at(-1)} To ${message.at(-1)}`;
+    //     }
+    //     if (option == "Current Financial Year") {
+    //         period_data = `${message[0]} To ${message[0]}`;
+    //     }
+
+    //     $(`[data-fieldname="${period_field}"]`).find(`option:contains(${option})`).attr("label", `${option} (${period_data})`);
+    // });
+
+    $(`[data-fieldname="${period_field}"]`).find(`option:contains(${period})`).attr("label", `${period} (${message[0]} To ${message.at(-1)})`);
+
+}
+
+function get_period(frm, field_prefix) {
+    const from_date_field = field_prefix + "_from_date";
+    const to_date_field = field_prefix + "_to_date";
+
+    let start_date = frm.doc[from_date_field];
+    let end_date = frm.doc[to_date_field];
+
+    return frm.call({
+        method: "_get_periods",
+        args: {
+            start_date: start_date,
+            end_date: end_date
+        },
+    });
+
 }
 
 function get_gstr_dialog_fields() {
@@ -379,8 +438,8 @@ function update_progress(frm, method) {
             method == "update_api_progress"
                 ? __("Fetching data from GSTN")
                 : __("Updating Inward Supply for Return Period {0}", [
-                      data.return_period,
-                  ]);
+                    data.return_period,
+                ]);
 
         frm.dashboard.show_progress("Import GSTR Progress", current_progress, message);
         frm.page.set_indicator(__("In Progress"), "orange");

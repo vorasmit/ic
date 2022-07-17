@@ -554,6 +554,7 @@ def get_periods(fiscal_year, return_type: ReturnType):
     return tuple(reversed(_get_periods(fiscal_year.start_date, end_date)))
 
 
+@frappe.whitelist()
 def _get_periods(start_date, end_date):
     """Returns a list of month (formatted as `MMYYYY`) in given date range"""
 
