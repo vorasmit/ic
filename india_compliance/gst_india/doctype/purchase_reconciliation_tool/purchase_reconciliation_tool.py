@@ -766,9 +766,6 @@ class PurchaseReconciliationTool(Document):
 
                 if isup_value != doc.get(field):
                     label = self.FIELDS_TO_MATCH[field]
-                    if isinstance(doc.get(field), str):
-                        label = f"{self.FIELDS_TO_MATCH[field]} - {isup_value}"
-
                     differences.append(label)
 
             _update_doc(doc, differences)
@@ -924,6 +921,12 @@ class PurchaseReconciliationTool(Document):
                 "label": "Differences",
             },
         ]
+
+    @frappe.whitelist()
+    def unlink_documents(self, data):
+        # TODO: unlink invoices here
+        if isinstance(data, str):
+            data = frappe.parse_json(data)
 
 
 def get_periods(fiscal_year, return_type: ReturnType):

@@ -23,6 +23,11 @@ ic.DataTableManager = class DataTableManager {
         }
     }
 
+    refresh(data, columns) {
+        this.data = data;
+        this.datatable.refresh(data, columns);
+    }
+
     get_column(fieldname) {
         return this.columns_dict[fieldname];
     }

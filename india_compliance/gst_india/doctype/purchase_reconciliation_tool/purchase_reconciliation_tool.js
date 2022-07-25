@@ -20,6 +20,7 @@ const ReturnType = {
 
 frappe.ui.form.on("Purchase Reconciliation Tool", {
     async setup(frm) {
+        patch_set_active_tab(frm);
         ic.setup_tooltip(frm, tooltip_info);
 
         await frappe.require("purchase_reco_tool.bundle.js");
@@ -41,7 +42,27 @@ frappe.ui.form.on("Purchase Reconciliation Tool", {
             ? frm.add_custom_button("Download", () => show_gstr_dialog(frm))
             : frm.add_custom_button("Upload", () => show_gstr_dialog(frm, false));
 
-        // if (frm.doc.company) set_gstin_options(frm);
+        // add custom buttons
+        if (!frm.purchase_reconciliation_tool?.data) return;
+        if (frm.get_active_tab()?.df.fieldname == "invoice_tab") {
+            frm.add_custom_button(
+                __("Unlink"),
+                () => unlink_documents(frm),
+                __("Actions")
+            );
+            frm.add_custom_button("dropdown-divider", () => {}, __("Actions"));
+        }
+        ["Accept My Values", "Accept Supplier Values", "Pending", "Ignore"].forEach(
+            action =>
+                frm.add_custom_button(
+                    __(action),
+                    () => apply_action(frm, action),
+                    __("Actions")
+                )
+        );
+        frm.$wrapper
+            .find("[data-label='dropdown-divider']")
+            .addClass("dropdown-divider");
     },
 
     purchase_period(frm) {
@@ -68,15 +89,9 @@ class PurchaseReconciliationTool {
     refresh(frm) {
         this.frm = frm;
         this.data = frm.doc.__onload?.reconciliation_data?.data;
-        this.tabs.invoice_tab.data_table_manager.datatable.refresh(
-            this.get_invoice_data()
-        );
-        this.tabs.supplier_tab.data_table_manager.datatable.refresh(
-            this.get_supplier_data()
-        );
-        this.tabs.summary_tab.data_table_manager.datatable.refresh(
-            this.get_summary_data()
-        );
+        this.tabs.invoice_tab.data_table_manager.refresh(this.get_invoice_data());
+        this.tabs.supplier_tab.data_table_manager.refresh(this.get_supplier_data());
+        this.tabs.summary_tab.data_table_manager.refresh(this.get_summary_data());
     }
 
     render_tab_group() {
@@ -289,20 +304,20 @@ class PurchaseReconciliationTool {
         return [
             {
                 label: "Supplier",
-                fieldname: "supplier",
+                fieldname: "supplier_name",
                 fieldtype: "Link",
                 width: 200,
                 _value: (value, column, data) => {
-                    if (data && column.field === "supplier") {
-                        column.docfield.link_onclick = `reco_tool.apply_filters(${JSON.stringify(
-                            {
-                                tab: "invoice_tab",
-                                filters: {
-                                    supplier_name: data.supplier_gstin,
-                                },
-                            }
-                        )})`;
-                    }
+                    // if (data && column.field === "supplier_name") {
+                    //     column.docfield.link_onclick = `reco_tool.apply_filters(${JSON.stringify(
+                    //         {
+                    //             tab: "invoice_tab",
+                    //             filters: {
+                    //                 supplier_name: data.supplier_gstin,
+                    //             },
+                    //         }
+                    //     )})`;
+                    // }
 
                     return `
                             ${data.supplier_name}
@@ -312,7 +327,6 @@ class PurchaseReconciliationTool {
                             </span>
                         `;
                 },
-                dropdown: false,
             },
             {
                 label: "Count <br>2A/2B Docs",
@@ -345,7 +359,7 @@ class PurchaseReconciliationTool {
                 },
             },
             {
-                label: "% Action Taken",
+                label: "% Action <br>Taken",
                 fieldname: "action_taken",
                 align: "center",
                 _value: (...args) => {
@@ -400,7 +414,6 @@ class PurchaseReconciliationTool {
                                 ${args[2].supplier_gstin || ""}
                             </span>`;
                 },
-                dropdown: false,
             },
             {
                 label: "Bill No.",
@@ -764,24 +777,24 @@ function update_progress(frm, method) {
     });
 }
 
-reco_tool.apply_filters = function ({ tab, filters }) {
-    if (!cur_frm) return;
+// reco_tool.apply_filters = function ({ tab, filters }) {
+//     if (!cur_frm) return;
 
-    // Switch to the tab
-    const { tabs } = cur_frm.purchase_reconciliation_tool;
-    tab = tabs && (tabs[tab] || Object.values(tabs).find(tab => tab.is_active()));
-    tab.set_active();
+//     // Switch to the tab
+//     const { tabs } = cur_frm.purchase_reconciliation_tool;
+//     tab = tabs && (tabs[tab] || Object.values(tabs).find(tab => tab.is_active()));
+//     tab.set_active();
 
-    // apply filters
-    const _filters = {};
-    for (const [fieldname, filter] of Object.entries(filters)) {
-        const column = tab.data_table_manager.get_column(fieldname);
-        column.$filter_input.value = filter;
-        _filters[column.colIndex] = filter;
-    }
+//     // apply filters
+//     const _filters = {};
+//     for (const [fieldname, filter] of Object.entries(filters)) {
+//         const column = tab.data_table_manager.get_column(fieldname);
+//         column.$filter_input.value = filter;
+//         _filters[column.colIndex] = filter;
+//     }
 
-    tab.data_table_manager.datatable.columnmanager.applyFilter(_filters);
-};
+//     tab.data_table_manager.datatable.columnmanager.applyFilter(_filters);
+// };
 
 function get_icon(value, column, data, icon) {
     /**
@@ -800,3 +813,26 @@ function get_icon(value, column, data, icon) {
 function get_hash(data) {
     if (data.name || data.isup_name) return data.name + "~" + data.isup_name;
 }
+
+function patch_set_active_tab(frm) {
+    const set_active_tab = frm.set_active_tab;
+    frm.set_active_tab = function (...args) {
+        set_active_tab.apply(this, args);
+        frm.refresh();
+    };
+}
+
+function unlink_documents(frm) {
+    if (frm.get_active_tab()?.df.fieldname != "invoice_tab") return;
+    const { data_table_manager } = frm.purchase_reconciliation_tool.tabs.invoice_tab;
+    const selected_rows = data_table_manager.get_checked_items();
+    selected_rows.forEach(row => {
+        if (row.isup_match_status.includes("Missing"))
+            frappe.throw(
+                "You have selected rows where no match is available. Please remove them before unlinking."
+            );
+    });
+    frm.call("unlink_documents", selected_rows);
+}
+
+function apply_action(frm, action) {}
