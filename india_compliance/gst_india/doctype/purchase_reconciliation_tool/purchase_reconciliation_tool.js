@@ -82,7 +82,9 @@ class PurchaseReconciliationTool {
     constructor(frm) {
         this.frm = frm;
         this.data = frm.doc.__onload?.reconciliation_data?.data;
+        this.$wrapper = this.frm.get_field("reconciliation_html").$wrapper;
         this.render_tab_group();
+        this.setup_filter_button();
         this.render_data_tables();
     }
 
@@ -130,7 +132,7 @@ class PurchaseReconciliationTool {
                     fieldname: "invoice_data",
                 },
             ],
-            body: this.frm.get_field("reconciliation_html").$wrapper,
+            body: this.$wrapper,
             frm: this.frm,
         });
 
@@ -140,6 +142,37 @@ class PurchaseReconciliationTool {
         this.tabs = Object.fromEntries(
             this.tab_group.tabs.map(tab => [tab.df.fieldname, tab])
         );
+    }
+
+    setup_filter_button() {
+        this.filter_button = $(`<div class="filter-selector">
+			<button class="btn btn-default btn-sm filter-button">
+				<span class="filter-icon">
+					${frappe.utils.icon("filter")}
+				</span>
+				<span class="button-label hidden-xs">
+					${__("Filter")}
+				<span>
+			</button>
+		</div>`).appendTo(this.$wrapper.find(".form-tabs-list"));
+
+        this.filter_group = new ic.FilterGroup({
+            filter_button: this.filter_button,
+            filter_options: {
+                fieldname: "supplier",
+                filter_fields: [
+                    {
+                        label: "Supplier",
+                        fieldname: "supplier",
+                        fieldtype: "Link",
+                        options: "Supplier",
+                    },
+                ],
+            },
+            on_change() {
+                console.log(this.filters);
+            },
+        });
     }
 
     render_data_tables() {

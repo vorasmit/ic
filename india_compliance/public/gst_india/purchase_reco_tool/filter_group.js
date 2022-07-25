@@ -2,7 +2,9 @@ frappe.provide("ic");
 
 class _Filter extends frappe.ui.Filter {
     set_conditions_from_config() {
-        this.filter_fields = [];
+        if (this.filter_list.filter_options) {
+            Object.assign(this, this.filter_list.filter_options);
+        }
     }
 }
 
@@ -16,4 +18,4 @@ ic.FilterGroup = class FilterGroup extends frappe.ui.FilterGroup {
             frappe.ui.Filter = Filter;
         }
     }
-}
+};
