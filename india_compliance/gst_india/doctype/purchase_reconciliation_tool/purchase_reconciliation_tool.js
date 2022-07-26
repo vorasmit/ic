@@ -5,26 +5,6 @@
 // TODO: replace the demo data
 frappe.provide("reco_tool");
 
-const OPERATOR_MAP = {
-    "=": (expected_value, value) => value == expected_value,
-    "!=": (expected_value, value) => value != expected_value,
-    ">": (expected_value, value) => value > expected_value,
-    "<": (expected_value, value) => value < expected_value,
-    ">=": (expected_value, value) => value >= expected_value,
-    "<=": (expected_value, value) => value <= expected_value,
-    like: (expected_value, value) => _like(expected_value, value),
-    "not like": (expected_value, value) => !_like(expected_value, value),
-    in: (expected_values, value) => expected_values.includes(value),
-    "not in": (expected_values, value) => !expected_values.includes(value),
-    is: (expected_value, value) => {
-        if (expected_value === "set") {
-            return !!value;
-        } else {
-            return !value;
-        }
-    },
-};
-
 const tooltip_info = {
     purchase_period: "Returns purchases during this period where no match is found.",
     inward_supply_period:
@@ -226,7 +206,7 @@ class PurchaseReconciliationTool {
         this.filters = filters;
         this.filtered_data = this.data.filter(row => {
             return filters.every(filter =>
-                OPERATOR_MAP[filter[2]](filter[3] || "", row[filter[1]] || "")
+                ic.FILTER_OPERATORS[filter[2]](filter[3] || "", row[filter[1]] || "")
             );
         });
     }
@@ -1010,17 +990,4 @@ function get_affected_rows(tab, selection, data) {
                 selection.filter(row => row.isup_match_status == inv.isup_match_status)
                     .length
         );
-}
-
-function _like(expected_value, value) {
-    expected_value = expected_value.toLowerCase();
-    value = value.toLowerCase();
-
-    if (!expected_value.endsWith("%"))
-        return value.endsWith(expected_value.slice(1));
-
-    if (!expected_value.startsWith("%"))
-        return value.startsWith(expected_value.slice(0, -1));
-
-    return value.includes(expected_value.slice(1, -1));
 }
