@@ -157,6 +157,7 @@ class PurchaseReconciliationTool {
 		</div>`).appendTo(this.$wrapper.find(".form-tabs-list"));
 
         this.filter_group = new ic.FilterGroup({
+            doctype: "Purchase Reconciliation Tool",
             filter_button: this.filter_button,
             filter_options: {
                 fieldname: "supplier",
@@ -166,13 +167,19 @@ class PurchaseReconciliationTool {
                         fieldname: "supplier",
                         fieldtype: "Link",
                         options: "Supplier",
+                        parent: "Purchase Reconciliation Tool",
                     },
                 ],
             },
-            on_change() {
-                console.log(this.filters);
-            },
+            on_change: () => {
+                this.apply_filters();
+            }
         });
+    }
+
+    apply_filters() {
+        const filters = this.filter_group.get_filters_as_object();
+        console.log(filters);
     }
 
     render_data_tables() {
