@@ -112,6 +112,13 @@ ic.DataTableManager = class DataTableManager {
         return indices.map(index => this.data[index]);
     }
 
+    clear_checked_items() {
+        const { rowmanager } = this.datatable;
+        rowmanager
+            .getCheckedRows()
+            .map(rowIndex => rowmanager.checkRow(rowIndex, false));
+    }
+
     render_datatable() {
         const datatable_options = {
             dynamicRowHeight: true,
