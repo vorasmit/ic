@@ -4,6 +4,7 @@
 from pypika.terms import Case
 
 import frappe
+from frappe import _
 from frappe.query_builder import Criterion
 from frappe.query_builder.functions import Sum
 from frappe.utils import getdate
@@ -19,64 +20,64 @@ def get_columns():
     return [
         {
             "fieldname": "posting_date",
-            "label": "Posting Date",
+            "label": _("Posting Date"),
             "fieldtype": "Date",
             "width": 120,
         },
         {
             "fieldname": "payment_entry",
-            "label": "Payment Entry",
+            "label": _("Payment Entry"),
             "fieldtype": "Link",
             "options": "Payment Entry",
             "width": 180,
         },
         {
             "fieldname": "customer",
-            "label": "Customer",
+            "label": _("Customer"),
             "fieldtype": "Link",
             "options": "Customer",
             "width": 150,
         },
         {
             "fieldname": "customer_name",
-            "label": "Customer Name",
+            "label": _("Customer Name"),
             "fieldtype": "Data",
             "width": 150,
         },
         {
             "fieldname": "paid_amount",
-            "label": "Paid Amount",
+            "label": _("Paid Amount"),
             "fieldtype": "Currency",
             "width": 120,
         },
         {
             "fieldname": "total_allocated_amount",
-            "label": "Allocated Amount",
+            "label": _("Allocated Amount"),
             "fieldtype": "Currency",
             "width": 120,
         },
         {
             "fieldname": "gst_paid",
-            "label": "GST Paid",
+            "label": _("GST Paid"),
             "fieldtype": "Currency",
             "width": 120,
         },
         {
             "fieldname": "gst_allocated",
-            "label": "GST Allocated",
+            "label": _("GST Allocated"),
             "fieldtype": "Currency",
             "width": 120,
         },
         {
             "fieldname": "against_voucher",
-            "label": "Against Voucher",
+            "label": _("Against Voucher"),
             "fieldtype": "Link",
             "options": "Sales Invoice",
             "width": 150,
         },
         {
             "fieldname": "place_of_supply",
-            "label": "Place of Supply",
+            "label": _("Place of Supply"),
             "fieldtype": "Data",
             "width": 150,
         },
