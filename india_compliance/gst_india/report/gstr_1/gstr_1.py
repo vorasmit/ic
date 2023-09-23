@@ -570,10 +570,15 @@ class Gstr1Report:
 
         if self.filters.get("type_of_business") != "NIL Rated":
             self.tax_columns = [
-                {"fieldname": "rate", "label": "Rate", "fieldtype": "Int", "width": 60},
+                {
+                    "fieldname": "rate",
+                    "label": _("Rate"),
+                    "fieldtype": "Int",
+                    "width": 60,
+                },
                 {
                     "fieldname": "taxable_value",
-                    "label": "Taxable Value",
+                    "label": _("Taxable Value"),
                     "fieldtype": "Currency",
                     "width": 150,
                 },
@@ -583,54 +588,54 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "billing_address_gstin",
-                    "label": "GSTIN/UIN of Recipient",
+                    "label": _("GSTIN/UIN of Recipient"),
                     "fieldtype": "Data",
                     "width": 150,
                 },
                 {
                     "fieldname": "customer_name",
-                    "label": "Receiver Name",
+                    "label": _("Receiver Name"),
                     "fieldtype": "Data",
                     "width": 100,
                 },
                 {
                     "fieldname": "invoice_number",
-                    "label": "Invoice Number",
+                    "label": _("Invoice Number"),
                     "fieldtype": "Link",
                     "options": "Sales Invoice",
                     "width": 100,
                 },
                 {
                     "fieldname": "posting_date",
-                    "label": "Invoice date",
+                    "label": _("Invoice date"),
                     "fieldtype": "Data",
                     "width": 80,
                 },
                 {
                     "fieldname": "invoice_value",
-                    "label": "Invoice Value",
+                    "label": _("Invoice Value"),
                     "fieldtype": "Currency",
                     "width": 100,
                 },
                 {
                     "fieldname": "place_of_supply",
-                    "label": "Place Of Supply",
+                    "label": _("Place Of Supply"),
                     "fieldtype": "Data",
                     "width": 100,
                 },
                 {
                     "fieldname": "is_reverse_charge",
-                    "label": "Reverse Charge",
+                    "label": _("Reverse Charge"),
                     "fieldtype": "Data",
                 },
                 {
                     "fieldname": "gst_category",
-                    "label": "Invoice Type",
+                    "label": _("Invoice Type"),
                     "fieldtype": "Data",
                 },
                 {
                     "fieldname": "ecommerce_gstin",
-                    "label": "E-Commerce GSTIN",
+                    "label": _("E-Commerce GSTIN"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
@@ -638,7 +643,7 @@ class Gstr1Report:
             self.other_columns = [
                 {
                     "fieldname": "cess_amount",
-                    "label": "Cess Amount",
+                    "label": _("Cess Amount"),
                     "fieldtype": "Currency",
                     "width": 100,
                 }
@@ -648,32 +653,32 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "invoice_number",
-                    "label": "Invoice Number",
+                    "label": _("Invoice Number"),
                     "fieldtype": "Link",
                     "options": "Sales Invoice",
                     "width": 120,
                 },
                 {
                     "fieldname": "posting_date",
-                    "label": "Invoice date",
+                    "label": _("Invoice date"),
                     "fieldtype": "Data",
                     "width": 100,
                 },
                 {
                     "fieldname": "invoice_value",
-                    "label": "Invoice Value",
+                    "label": _("Invoice Value"),
                     "fieldtype": "Currency",
                     "width": 100,
                 },
                 {
                     "fieldname": "place_of_supply",
-                    "label": "Place Of Supply",
+                    "label": _("Place Of Supply"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "ecommerce_gstin",
-                    "label": "E-Commerce GSTIN",
+                    "label": _("E-Commerce GSTIN"),
                     "fieldtype": "Data",
                     "width": 130,
                 },
@@ -681,7 +686,7 @@ class Gstr1Report:
             self.other_columns = [
                 {
                     "fieldname": "cess_amount",
-                    "label": "Cess Amount",
+                    "label": _("Cess Amount"),
                     "fieldtype": "Currency",
                     "width": 100,
                 }
@@ -690,67 +695,67 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "billing_address_gstin",
-                    "label": "GSTIN/UIN of Recipient",
+                    "label": _("GSTIN/UIN of Recipient"),
                     "fieldtype": "Data",
                     "width": 150,
                 },
                 {
                     "fieldname": "customer_name",
-                    "label": "Receiver Name",
+                    "label": _("Receiver Name"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "return_against",
-                    "label": "Invoice/Advance Receipt Number",
+                    "label": _("Invoice/Advance Receipt Number"),
                     "fieldtype": "Link",
                     "options": "Sales Invoice",
                     "width": 120,
                 },
                 {
                     "fieldname": "posting_date",
-                    "label": "Invoice/Advance Receipt date",
+                    "label": _("Invoice/Advance Receipt date"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "invoice_number",
-                    "label": "Invoice/Advance Receipt Number",
+                    "label": _("Invoice/Advance Receipt Number"),
                     "fieldtype": "Link",
                     "options": "Sales Invoice",
                     "width": 120,
                 },
                 {
                     "fieldname": "is_reverse_charge",
-                    "label": "Reverse Charge",
+                    "label": _("Reverse Charge"),
                     "fieldtype": "Data",
                 },
                 {
                     "fieldname": "export_type",
-                    "label": "Export Type",
+                    "label": _("Export Type"),
                     "fieldtype": "Data",
                     "hidden": 1,
                 },
                 {
                     "fieldname": "reason_for_issuing_document",
-                    "label": "Reason For Issuing document",
+                    "label": _("Reason For Issuing document"),
                     "fieldtype": "Data",
                     "width": 140,
                 },
                 {
                     "fieldname": "place_of_supply",
-                    "label": "Place Of Supply",
+                    "label": _("Place Of Supply"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "gst_category",
-                    "label": "GST Category",
+                    "label": _("GST Category"),
                     "fieldtype": "Data",
                 },
                 {
                     "fieldname": "invoice_value",
-                    "label": "Invoice Value",
+                    "label": _("Invoice Value"),
                     "fieldtype": "Currency",
                     "width": 120,
                 },
@@ -758,19 +763,19 @@ class Gstr1Report:
             self.other_columns = [
                 {
                     "fieldname": "cess_amount",
-                    "label": "Cess Amount",
+                    "label": _("Cess Amount"),
                     "fieldtype": "Currency",
                     "width": 100,
                 },
                 {
                     "fieldname": "pre_gst",
-                    "label": "PRE GST",
+                    "label": _("PRE GST"),
                     "fieldtype": "Data",
                     "width": 80,
                 },
                 {
                     "fieldname": "document_type",
-                    "label": "Document Type",
+                    "label": _("Document Type"),
                     "fieldtype": "Data",
                     "width": 80,
                 },
@@ -779,56 +784,56 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "customer_name",
-                    "label": "Receiver Name",
+                    "label": _("Receiver Name"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "return_against",
-                    "label": "Issued Against",
+                    "label": _("Issued Against"),
                     "fieldtype": "Link",
                     "options": "Sales Invoice",
                     "width": 120,
                 },
                 {
                     "fieldname": "posting_date",
-                    "label": "Note Date",
+                    "label": _("Note Date"),
                     "fieldtype": "Date",
                     "width": 120,
                 },
                 {
                     "fieldname": "invoice_number",
-                    "label": "Note Number",
+                    "label": _("Note Number"),
                     "fieldtype": "Link",
                     "options": "Sales Invoice",
                     "width": 120,
                 },
                 {
                     "fieldname": "export_type",
-                    "label": "Export Type",
+                    "label": _("Export Type"),
                     "fieldtype": "Data",
                     "hidden": 1,
                 },
                 {
                     "fieldname": "reason_for_issuing_document",
-                    "label": "Reason For Issuing document",
+                    "label": _("Reason For Issuing document"),
                     "fieldtype": "Data",
                     "width": 140,
                 },
                 {
                     "fieldname": "place_of_supply",
-                    "label": "Place Of Supply",
+                    "label": _("Place Of Supply"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "gst_category",
-                    "label": "GST Category",
+                    "label": _("GST Category"),
                     "fieldtype": "Data",
                 },
                 {
                     "fieldname": "invoice_value",
-                    "label": "Invoice Value",
+                    "label": _("Invoice Value"),
                     "fieldtype": "Currency",
                     "width": 120,
                 },
@@ -836,19 +841,19 @@ class Gstr1Report:
             self.other_columns = [
                 {
                     "fieldname": "cess_amount",
-                    "label": "Cess Amount",
+                    "label": _("Cess Amount"),
                     "fieldtype": "Currency",
                     "width": 100,
                 },
                 {
                     "fieldname": "pre_gst",
-                    "label": "PRE GST",
+                    "label": _("PRE GST"),
                     "fieldtype": "Data",
                     "width": 80,
                 },
                 {
                     "fieldname": "document_type",
-                    "label": "Document Type",
+                    "label": _("Document Type"),
                     "fieldtype": "Data",
                     "width": 80,
                 },
@@ -857,13 +862,13 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "place_of_supply",
-                    "label": "Place Of Supply",
+                    "label": _("Place Of Supply"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "ecommerce_gstin",
-                    "label": "E-Commerce GSTIN",
+                    "label": _("E-Commerce GSTIN"),
                     "fieldtype": "Data",
                     "width": 130,
                 },
@@ -871,13 +876,13 @@ class Gstr1Report:
             self.other_columns = [
                 {
                     "fieldname": "cess_amount",
-                    "label": "Cess Amount",
+                    "label": _("Cess Amount"),
                     "fieldtype": "Currency",
                     "width": 100,
                 },
                 {
                     "fieldname": "type",
-                    "label": "Type",
+                    "label": _("Type"),
                     "fieldtype": "Data",
                     "width": 50,
                 },
@@ -886,44 +891,44 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "export_type",
-                    "label": "Export Type",
+                    "label": _("Export Type"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "invoice_number",
-                    "label": "Invoice Number",
+                    "label": _("Invoice Number"),
                     "fieldtype": "Link",
                     "options": "Sales Invoice",
                     "width": 120,
                 },
                 {
                     "fieldname": "posting_date",
-                    "label": "Invoice date",
+                    "label": _("Invoice date"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "invoice_value",
-                    "label": "Invoice Value",
+                    "label": _("Invoice Value"),
                     "fieldtype": "Currency",
                     "width": 120,
                 },
                 {
                     "fieldname": "port_code",
-                    "label": "Port Code",
+                    "label": _("Port Code"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "shipping_bill_number",
-                    "label": "Shipping Bill Number",
+                    "label": _("Shipping Bill Number"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
                 {
                     "fieldname": "shipping_bill_date",
-                    "label": "Shipping Bill Date",
+                    "label": _("Shipping Bill Date"),
                     "fieldtype": "Data",
                     "width": 120,
                 },
@@ -932,7 +937,7 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "place_of_supply",
-                    "label": "Place Of Supply",
+                    "label": _("Place Of Supply"),
                     "fieldtype": "Data",
                     "width": 180,
                 }
@@ -941,7 +946,7 @@ class Gstr1Report:
             self.other_columns = [
                 {
                     "fieldname": "cess_amount",
-                    "label": "Cess Amount",
+                    "label": _("Cess Amount"),
                     "fieldtype": "Currency",
                     "width": 130,
                 }
@@ -950,25 +955,25 @@ class Gstr1Report:
             self.invoice_columns = [
                 {
                     "fieldname": "description",
-                    "label": "Description",
+                    "label": _("Description"),
                     "fieldtype": "Data",
                     "width": 420,
                 },
                 {
                     "fieldname": "nil_rated",
-                    "label": "Nil Rated",
+                    "label": _("Nil Rated"),
                     "fieldtype": "Currency",
                     "width": 200,
                 },
                 {
                     "fieldname": "exempted",
-                    "label": "Exempted",
+                    "label": _("Exempted"),
                     "fieldtype": "Currency",
                     "width": 200,
                 },
                 {
                     "fieldname": "non_gst",
-                    "label": "Non GST",
+                    "label": _("Non GST"),
                     "fieldtype": "Currency",
                     "width": 200,
                 },
