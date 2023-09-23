@@ -74,7 +74,9 @@ class Gstr1Report:
         if self.filters.get("type_of_business") in ("B2C Small", "B2C Large"):
             self.get_b2c_data()
         elif self.filters.get("type_of_business") == "Advances":
-            self.get_advance_data()
+            self.get_11_2A_2B_data("Advances")
+        elif self.filters.get("type_of_business") == "Adjustment":
+            self.get_11_2A_2B_data("Adjustment")
         elif self.filters.get("type_of_business") == "NIL Rated":
             self.get_nil_rated_invoices()
         elif self.invoices:
@@ -105,25 +107,25 @@ class Gstr1Report:
                     if taxable_value:
                         self.data.append(row)
 
-    def get_advance_data(self):
-        advances_data = {}
-        advances = self.get_advance_entries()
-        for entry in advances:
-            # only consider IGST and SGST so as to avoid duplication of taxable amount
-            if (
-                entry.account_head == self.gst_accounts.igst_account
-                or entry.account_head == self.gst_accounts.sgst_account
-            ):
-                advances_data.setdefault(
-                    (entry.place_of_supply, entry.rate), [0.0, 0.0]
-                )
-                advances_data[(entry.place_of_supply, entry.rate)][0] += (
+    def get_11_2A_2B_data(self, type):
+        data = {}
+        records = []
+        if type == "Advances":
+            records = self.get_advance_entries()
+        elif type == "Adjustment":
+            records = self.get_adjustment_entries()
+
+        for entry in records:
+            data.setdefault((entry.place_of_supply, entry.rate), [0.0, 0.0])
+
+            # only considering CESS accounts
+            if entry.account_head == self.gst_accounts.cess_account:
+                data[(entry.place_of_supply, entry.rate)][0] += (
                     entry.amount * 100 / entry.rate
                 )
-            elif entry.account_head == self.gst_accounts.cess_account:
-                advances_data[(entry.place_of_supply, entry.rate)][1] += entry.amount
+                data[(entry.place_of_supply, entry.rate)][1] += entry.amount
 
-        for key, value in advances_data.items():
+        for key, value in data.items():
             row = [key[0], key[1], value[0], value[1]]
             self.data.append(row)
 
@@ -328,16 +330,58 @@ class Gstr1Report:
             self.invoices.setdefault(d.invoice_number, d)
 
     def get_advance_entries(self):
+        conditions = ""
+        if self.filters.get("company_gstin"):
+            conditions += " AND company_gstin =" + self.filters.get("company")
+
+        if self.filters.get("company_address"):
+            conditions += " AND company_address =" + self.filters.get("company_address")
+
         return frappe.db.sql(
             """
-			SELECT SUM(a.base_tax_amount) as amount, a.account_head, a.rate, p.place_of_supply
-			FROM `tabPayment Entry` p, `tabAdvance Taxes and Charges` a
-			WHERE p.docstatus = 1
-			AND p.name = a.parent
-			AND posting_date between %s and %s
-			GROUP BY a.account_head, p.place_of_supply, a.rate
-		""",
-            (self.filters.get("from_date"), self.filters.get("to_date")),
+            SELECT SUM(taxes.base_tax_amount) as amount, taxes.account_head, taxes.rate, pe.place_of_supply
+            FROM `tabPayment Entry` pe, `tabAdvance Taxes and Charges` taxes
+            WHERE pe.docstatus = 1
+            AND pe.name = taxes.parent
+            AND posting_date between %s and %s
+            AND taxes.account_head = %s
+            %s
+            GROUP BY pe.place_of_supply, taxes.account_head, taxes.rate
+        """,
+            (
+                self.filters.get("from_date"),
+                self.filters.get("to_date"),
+                self.gst_accounts.cess_account,
+                conditions,
+            ),
+            as_dict=1,
+        )
+
+    def get_adjustment_entries(self):
+        conditions = ""
+        if self.filters.get("company_gstin"):
+            conditions += " AND company_gstin =" + self.filters.get("company")
+
+        if self.filters.get("company_address"):
+            conditions += " AND company_address =" + self.filters.get("company_address")
+
+        return frappe.db.sql(
+            """
+            SELECT SUM(taxes.base_tax_amount) as amount, taxes.account_head, taxes.rate, si.place_of_supply
+            FROM `tabSales Invoice` si, `tabSales Taxes and Charges` taxes
+            WHERE si.docstatus = 1
+            AND si.name = taxes.parent
+            AND posting_date between %s and %s
+            AND taxes.account_head = %s
+            %s
+            GROUP BY si.place_of_supply, taxes.account_head, taxes.rate
+        """,
+            (
+                self.filters.get("from_date"),
+                self.filters.get("to_date"),
+                self.gst_accounts.cess_account,
+                conditions,
+            ),
             as_dict=1,
         )
 
@@ -531,7 +575,7 @@ class Gstr1Report:
                     "fieldname": "taxable_value",
                     "label": "Taxable Value",
                     "fieldtype": "Currency",
-                    "width": 100,
+                    "width": 150,
                 },
             ]
 
@@ -884,13 +928,13 @@ class Gstr1Report:
                     "width": 120,
                 },
             ]
-        elif self.filters.get("type_of_business") == "Advances":
+        elif self.filters.get("type_of_business") in ("Advances", "Adjustment"):
             self.invoice_columns = [
                 {
                     "fieldname": "place_of_supply",
                     "label": "Place Of Supply",
                     "fieldtype": "Data",
-                    "width": 120,
+                    "width": 180,
                 }
             ]
 
@@ -899,7 +943,7 @@ class Gstr1Report:
                     "fieldname": "cess_amount",
                     "label": "Cess Amount",
                     "fieldtype": "Currency",
-                    "width": 100,
+                    "width": 130,
                 }
             ]
         elif self.filters.get("type_of_business") == "NIL Rated":
