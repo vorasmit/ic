@@ -60,5 +60,11 @@ frappe.query_reports["GST Advance Detail"] = {
             fieldtype: "Check",
             default: 0,
         },
+        {
+            fieldname: "show_summary",
+            label: __("Show Summary"),
+            fieldtype: "Check",
+            default: 0,
+        }
     ],
 };

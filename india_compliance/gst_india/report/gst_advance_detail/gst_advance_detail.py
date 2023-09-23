@@ -6,181 +6,211 @@ from pypika.terms import Case
 import frappe
 from frappe import _
 from frappe.query_builder import Criterion
-from frappe.query_builder.functions import Sum
-from frappe.utils import getdate
+from frappe.query_builder.custom import ConstantColumn
+from frappe.query_builder.functions import IfNull, Sum
+from frappe.utils import flt, getdate
 
 from india_compliance.gst_india.utils import get_gst_accounts_by_type
 
 
 def execute(filters=None):
-    return get_columns(), get_data(filters)
+    report = GSTAdvanceDetail(filters)
+    return report.get_columns(), report.get_data()
 
 
-def get_columns():
-    return [
-        {
-            "fieldname": "posting_date",
-            "label": _("Posting Date"),
-            "fieldtype": "Date",
-            "width": 120,
-        },
-        {
-            "fieldname": "payment_entry",
-            "label": _("Payment Entry"),
-            "fieldtype": "Link",
-            "options": "Payment Entry",
-            "width": 180,
-        },
-        {
-            "fieldname": "customer",
-            "label": _("Customer"),
-            "fieldtype": "Link",
-            "options": "Customer",
-            "width": 150,
-        },
-        {
-            "fieldname": "customer_name",
-            "label": _("Customer Name"),
-            "fieldtype": "Data",
-            "width": 150,
-        },
-        {
-            "fieldname": "paid_amount",
-            "label": _("Paid Amount"),
-            "fieldtype": "Currency",
-            "width": 120,
-        },
-        {
-            "fieldname": "total_allocated_amount",
-            "label": _("Allocated Amount"),
-            "fieldtype": "Currency",
-            "width": 120,
-        },
-        {
-            "fieldname": "gst_paid",
-            "label": _("GST Paid"),
-            "fieldtype": "Currency",
-            "width": 120,
-        },
-        {
-            "fieldname": "gst_allocated",
-            "label": _("GST Allocated"),
-            "fieldtype": "Currency",
-            "width": 120,
-        },
-        {
-            "fieldname": "against_voucher",
-            "label": _("Against Voucher"),
-            "fieldtype": "Link",
-            "options": "Sales Invoice",
-            "width": 150,
-        },
-        {
-            "fieldname": "place_of_supply",
-            "label": _("Place of Supply"),
-            "fieldtype": "Data",
-            "width": 150,
-        },
-    ]
+class GSTAdvanceDetail:
+    def __init__(self, filters):
+        self.filters = filters
 
+        self.pe = frappe.qb.DocType("Payment Entry")
+        self.pe_ref = frappe.qb.DocType("Payment Entry Reference")
+        self.gl_entry = frappe.qb.DocType("GL Entry")
+        self.gst_accounts = get_gst_accounts(filters)
 
-def get_data(filters):
-    data = []
-    advance_entries = get_gst_advance_details(filters)
+    def get_columns(self):
+        columns = [
+            {
+                "fieldname": "posting_date",
+                "label": _("Posting Date"),
+                "fieldtype": "Date",
+                "width": 120,
+            },
+            {
+                "fieldname": "payment_entry",
+                "label": _("Payment Entry"),
+                "fieldtype": "Link",
+                "options": "Payment Entry",
+                "width": 180,
+            },
+            {
+                "fieldname": "customer",
+                "label": _("Customer"),
+                "fieldtype": "Link",
+                "options": "Customer",
+                "width": 150,
+            },
+            {
+                "fieldname": "customer_name",
+                "label": _("Customer Name"),
+                "fieldtype": "Data",
+                "width": 150,
+            },
+            {
+                "fieldname": "paid_amount",
+                "label": _("Paid Amount"),
+                "fieldtype": "Currency",
+                "width": 120,
+            },
+            {
+                "fieldname": "allocated_amount",
+                "label": _("Allocated Amount"),
+                "fieldtype": "Currency",
+                "width": 120,
+            },
+            {
+                "fieldname": "gst_paid",
+                "label": _("GST Paid"),
+                "fieldtype": "Currency",
+                "width": 120,
+            },
+            {
+                "fieldname": "gst_allocated",
+                "label": _("GST Allocated"),
+                "fieldtype": "Currency",
+                "width": 120,
+            },
+            {
+                "fieldname": "against_voucher",
+                "label": _("Against Voucher"),
+                "fieldtype": "Link",
+                "options": "Sales Invoice",
+                "width": 150,
+            },
+            {
+                "fieldname": "place_of_supply",
+                "label": _("Place of Supply"),
+                "fieldtype": "Data",
+                "width": 150,
+            },
+        ]
 
-    payment_enties = []
+        if not self.filters.get("show_summary"):
+            return columns
 
-    for entry in advance_entries:
-        row = frappe._dict()
-        row.update(entry)
+        for col in columns.copy():
+            if col.get("fieldname") in ["posting_date", "against_voucher"]:
+                columns.remove(col)
 
-        if entry.payment_entry in payment_enties and entry.gst_allocated:
-            row.update({"gst_paid": 0, "paid_amount": 0})
+        return columns
 
-            if entry.paid_amount == entry.total_allocated_amount:
-                row["total_allocated_amount"] = 0
+    def get_data(self):
+        paid_entries = self.get_paid_entries()
+        allocated_entries = self.get_allocated_entries()
 
-        payment_enties.append(entry.payment_entry)
-        data.append(row)
+        data = paid_entries + allocated_entries
 
-    return data
+        # sort by payment_entry
+        data = sorted(data, key=lambda k: (k["payment_entry"]), reverse=True)
 
+        if not self.filters.get("show_summary"):
+            return data
 
-def get_gst_advance_details(filters):
-    gst_accounts = get_gst_accounts(filters)
+        return self.get_summary_data(data)
 
-    gl_entry = frappe.qb.DocType("GL Entry")
-    pe = frappe.qb.DocType("Payment Entry")
+    def get_summary_data(self, data):
+        amount_fields = {
+            "paid_amount": 0,
+            "gst_paid": 0,
+            "allocated_amount": 0,
+            "gst_allocated": 0,
+        }
 
-    conditions = get_conditions(filters, gl_entry, pe)
+        summary_data = {}
+        for row in data:
+            new_row = summary_data.setdefault(
+                row["payment_entry"], {**row, **amount_fields}
+            )
 
-    gst_paid_column = Sum(
-        Case()
-        .when(
-            gl_entry.account.isin(gst_accounts),
-            gl_entry.credit_in_account_currency,
+            for key in amount_fields:
+                new_row[key] += flt(row[key])
+
+        return list(summary_data.values())
+
+    def get_paid_entries(self):
+        return (
+            self.get_query()
+            .select(
+                ConstantColumn(0).as_("allocated_amount"),
+                ConstantColumn("").as_("against_voucher"),
+            )
+            .where(self.gl_entry.credit_in_account_currency > 0)
+            .groupby(self.gl_entry.voucher_no)
+            .run(as_dict=True)
         )
-        .else_(0)
-    ).as_("gst_paid")
 
-    gst_allocated_column = Sum(
-        Case()
-        .when(
-            gl_entry.account.isin(gst_accounts),
-            gl_entry.debit_in_account_currency,
+    def get_allocated_entries(self):
+        return (
+            self.get_query()
+            .join(self.pe_ref)
+            .on(self.pe_ref.name == self.gl_entry.voucher_detail_no)
+            .select(
+                self.pe_ref.allocated_amount,
+                self.pe_ref.reference_name.as_("against_voucher"),
+            )
+            .where(self.gl_entry.debit_in_account_currency > 0)
+            .groupby(self.gl_entry.voucher_detail_no)
+            .run(as_dict=True)
         )
-        .else_(0)
-    ).as_("gst_allocated")
 
-    query = (
-        frappe.qb.from_(gl_entry)
-        .join(pe)
-        .on(pe.name == gl_entry.voucher_no)
-        .select(
-            gl_entry.posting_date,
-            pe.name.as_("payment_entry"),
-            pe.party.as_("customer"),
-            pe.party_name.as_("customer_name"),
-            pe.paid_amount,
-            pe.total_allocated_amount,
-            gst_paid_column,
-            gst_allocated_column,
-            gl_entry.against_voucher,
-            pe.place_of_supply,
+    def get_query(self):
+        return (
+            frappe.qb.from_(self.gl_entry)
+            .join(self.pe)
+            .on(self.pe.name == self.gl_entry.voucher_no)
+            .select(
+                self.gl_entry.voucher_no,
+                self.gl_entry.posting_date,
+                self.pe.name.as_("payment_entry"),
+                self.pe.party.as_("customer"),
+                self.pe.party_name.as_("customer_name"),
+                Case()
+                .when(self.gl_entry.credit_in_account_currency > 0, self.pe.paid_amount)
+                .else_(0)
+                .as_("paid_amount"),
+                Sum(self.gl_entry.credit_in_account_currency).as_("gst_paid"),
+                Sum(self.gl_entry.debit_in_account_currency).as_("gst_allocated"),
+                self.pe.place_of_supply,
+            )
+            .where(Criterion.all(self.get_conditions()))
         )
-        .where(Criterion.all(conditions))
-    )
 
-    query = query.groupby(gl_entry.posting_date, gl_entry.voucher_no)
-    taxes = query.run(as_dict=True)
+    def get_conditions(self):
+        conditions = []
 
-    return taxes
+        conditions.append(self.gl_entry.is_cancelled == 0)
+        conditions.append(self.gl_entry.voucher_type == "Payment Entry")
+        conditions.append(self.gl_entry.company == self.filters.get("company"))
+        conditions.append(self.gl_entry.account.isin(self.gst_accounts))
 
+        if self.filters.get("customer"):
+            conditions.append(self.gl_entry.party == self.filters.get("customer"))
 
-def get_conditions(filters, gl_entry, pe):
-    company = filters.get("company")
+        if self.filters.get("account"):
+            conditions.append(self.pe.paid_from == self.filters.get("account"))
 
-    conditions = []
+        if self.filters.get("show_for_period") and self.filters.get("from_date"):
+            conditions.append(
+                self.gl_entry.posting_date >= getdate(self.filters.get("from_date"))
+            )
+        else:
+            conditions.append(IfNull(self.pe.unallocated_amount, 0) > 0)
 
-    conditions.append(gl_entry.is_cancelled == 0)
-    conditions.append(gl_entry.voucher_type == "Payment Entry")
-    conditions.append(pe.unallocated_amount.isnotnull())
-    conditions.append(pe.total_taxes_and_charges.isnotnull())
-    conditions.append(gl_entry.company == company)
+        if self.filters.get("to_date"):
+            conditions.append(
+                self.gl_entry.posting_date <= getdate(self.filters.get("to_date"))
+            )
 
-    if filters.get("customer"):
-        conditions.append(gl_entry.party == filters.get("customer"))
-
-    if filters.get("account"):
-        conditions.append(pe.paid_from == filters.get("account"))
-
-    if filters.get("show_for_period") and filters.get("from_date"):
-        conditions.append(gl_entry.posting_date >= getdate(filters.get("from_date")))
-
-    if filters.get("to_date"):
-        conditions.append(gl_entry.posting_date <= getdate(filters.get("to_date")))
-
-    return conditions
+        return conditions
 
 
 def get_gst_accounts(filters):
@@ -189,4 +219,4 @@ def get_gst_accounts(filters):
     if not gst_accounts:
         return []
 
-    return [account_head for type, account_head in gst_accounts.items()]
+    return [account_head for account_head in gst_accounts.values() if account_head]
