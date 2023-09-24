@@ -5,8 +5,12 @@
 import json
 from datetime import date
 
+from pypika.terms import Case
+
 import frappe
 from frappe import _
+from frappe.query_builder import Criterion
+from frappe.query_builder.functions import IfNull, Sum
 from frappe.utils import flt, formatdate, getdate
 
 from india_compliance.gst_india.utils import (
@@ -74,9 +78,9 @@ class Gstr1Report:
         if self.filters.get("type_of_business") in ("B2C Small", "B2C Large"):
             self.get_b2c_data()
         elif self.filters.get("type_of_business") == "Advances":
-            self.get_11_2A_2B_data("Advances")
+            self.get_11A_11B_data("Advances")
         elif self.filters.get("type_of_business") == "Adjustment":
-            self.get_11_2A_2B_data("Adjustment")
+            self.get_11A_11B_data("Adjustment")
         elif self.filters.get("type_of_business") == "NIL Rated":
             self.get_nil_rated_invoices()
         elif self.invoices:
@@ -107,23 +111,14 @@ class Gstr1Report:
                     if taxable_value:
                         self.data.append(row)
 
-    def get_11_2A_2B_data(self, type):
-        data = {}
-        records = []
+    def get_11A_11B_data(self, type):
+        report = GSTR11A11BData(self.filters, self.gst_accounts)
+
         if type == "Advances":
-            records = self.get_advance_entries()
+            data = report.get_11A_data()
+
         elif type == "Adjustment":
-            records = self.get_adjustment_entries()
-
-        for entry in records:
-            data.setdefault((entry.place_of_supply, entry.rate), [0.0, 0.0])
-
-            # only considering CESS accounts
-            if entry.account_head == self.gst_accounts.cess_account:
-                data[(entry.place_of_supply, entry.rate)][0] += (
-                    entry.amount * 100 / entry.rate
-                )
-                data[(entry.place_of_supply, entry.rate)][1] += entry.amount
+            data = report.get_11B_data()
 
         for key, value in data.items():
             row = [key[0], key[1], value[0], value[1]]
@@ -328,62 +323,6 @@ class Gstr1Report:
         for d in invoice_data:
             d.is_reverse_charge = "Y" if d.is_reverse_charge else "N"
             self.invoices.setdefault(d.invoice_number, d)
-
-    def get_advance_entries(self):
-        conditions = ""
-        if self.filters.get("company_gstin"):
-            conditions += " AND company_gstin =" + self.filters.get("company")
-
-        if self.filters.get("company_address"):
-            conditions += " AND company_address =" + self.filters.get("company_address")
-
-        return frappe.db.sql(
-            """
-            SELECT SUM(taxes.base_tax_amount) as amount, taxes.account_head, taxes.rate, pe.place_of_supply
-            FROM `tabPayment Entry` pe, `tabAdvance Taxes and Charges` taxes
-            WHERE pe.docstatus = 1
-            AND pe.name = taxes.parent
-            AND posting_date between %s and %s
-            AND taxes.account_head = %s
-            %s
-            GROUP BY pe.place_of_supply, taxes.account_head, taxes.rate
-        """,
-            (
-                self.filters.get("from_date"),
-                self.filters.get("to_date"),
-                self.gst_accounts.cess_account,
-                conditions,
-            ),
-            as_dict=1,
-        )
-
-    def get_adjustment_entries(self):
-        conditions = ""
-        if self.filters.get("company_gstin"):
-            conditions += " AND company_gstin =" + self.filters.get("company")
-
-        if self.filters.get("company_address"):
-            conditions += " AND company_address =" + self.filters.get("company_address")
-
-        return frappe.db.sql(
-            """
-            SELECT SUM(taxes.base_tax_amount) as amount, taxes.account_head, taxes.rate, si.place_of_supply
-            FROM `tabSales Invoice` si, `tabSales Taxes and Charges` taxes
-            WHERE si.docstatus = 1
-            AND si.name = taxes.parent
-            AND posting_date between %s and %s
-            AND taxes.account_head = %s
-            %s
-            GROUP BY si.place_of_supply, taxes.account_head, taxes.rate
-        """,
-            (
-                self.filters.get("from_date"),
-                self.filters.get("to_date"),
-                self.gst_accounts.cess_account,
-                conditions,
-            ),
-            as_dict=1,
-        )
 
     def get_conditions(self):
         conditions = ""
@@ -980,6 +919,122 @@ class Gstr1Report:
             ]
 
         self.columns = self.invoice_columns + self.tax_columns + self.other_columns
+
+
+class GSTR11A11BData:
+    def __init__(self, filters, gst_accounts):
+        self.filters = filters
+
+        self.pe = frappe.qb.DocType("Payment Entry")
+        self.pe_ref = frappe.qb.DocType("Payment Entry Reference")
+        self.pe_taxes = frappe.qb.DocType("Advance Taxes and Charges")
+        self.tax_doctype = frappe.qb.DocType("Sales Taxes and Charges")
+        self.gst_accounts = gst_accounts
+
+    def get_11A_data(self):
+        data = {}
+        paid_entries = self.get_paid_entries()
+
+        for entry in paid_entries:
+            data.setdefault((entry.place_of_supply, entry.rate), [0.0, 0.0])
+
+            data[(entry.place_of_supply, entry.rate)][0] += entry.paid_amount
+            data[(entry.place_of_supply, entry.rate)][1] += entry.cess_amount
+
+        return data
+
+    def get_11B_data(self):
+        data = {}
+        allocated_entries = self.get_allocated_entries()
+
+        for entry in allocated_entries:
+            data.setdefault((entry.place_of_supply, entry.rate), [0.0, 0.0])
+
+            data[(entry.place_of_supply, entry.rate)][0] += entry.paid_amount
+            data[(entry.place_of_supply, entry.rate)][1] += entry.cess_amount
+
+        return data
+
+    def get_paid_entries(self):
+        return (
+            self.get_query()
+            .select(Sum(self.pe_taxes.base_tax_amount).as_("cess_amount"))
+            .groupby(
+                self.pe.place_of_supply, self.pe_taxes.account_head, self.pe_taxes.rate
+            )
+            .run(as_dict=True)
+        )
+
+    def get_allocated_entries(self):
+        query = (
+            self.get_query()
+            .join(self.pe_ref)
+            .on(self.pe_ref.parent == self.pe.name)
+            .join(self.tax_doctype)
+            .on(self.tax_doctype.parent == self.pe_ref.reference_name)
+            .select(
+                Sum(self.tax_doctype.base_tax_amount).as_("cess_amount"),
+            )
+            .where(self.tax_doctype.account_head == self.gst_accounts.cess_account)
+            .groupby(
+                self.pe.place_of_supply,
+                self.tax_doctype.account_head,
+                self.tax_doctype.rate,
+            )
+        )
+
+        return query.run(as_dict=True)
+
+    def get_query(self):
+        return (
+            frappe.qb.from_(self.pe)
+            .join(self.pe_taxes)
+            .on(self.pe.name == self.pe_taxes.parent)
+            .select(
+                self.pe.name.as_("payment_entry"),
+                self.pe_taxes.rate,
+                Case()
+                .when(self.pe.paid_amount, self.pe.paid_amount)
+                .else_(0)
+                .as_("paid_amount"),
+                self.pe.place_of_supply,
+            )
+            .where(Criterion.all(self.get_conditions()))
+        )
+
+    def get_conditions(self):
+        conditions = []
+
+        conditions.append(self.pe.docstatus == 1)
+        conditions.append(self.pe_taxes.account_head == self.gst_accounts.cess_account)
+
+        for opts in (
+            ("company", self.pe.company == self.filters.get("company")),
+            (
+                "company_address",
+                self.pe.company_address == self.filters.get("company_address"),
+            ),
+            (
+                "company_gstin",
+                self.pe.company_gstin == self.filters.get("company_gstin"),
+            ),
+        ):
+            if self.filters.get(opts[0]):
+                conditions.append(opts[1])
+
+        if self.filters.get("from_date"):
+            conditions.append(
+                self.pe.posting_date >= getdate(self.filters.get("from_date"))
+            )
+        else:
+            conditions.append(IfNull(self.pe.unallocated_amount, 0) > 0)
+
+        if self.filters.get("to_date"):
+            conditions.append(
+                self.pe.posting_date <= getdate(self.filters.get("to_date"))
+            )
+
+        return conditions
 
 
 @frappe.whitelist()
