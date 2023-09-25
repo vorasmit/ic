@@ -8,7 +8,7 @@ from datetime import date
 import frappe
 from frappe import _
 from frappe.query_builder import Criterion
-from frappe.query_builder.functions import IfNull, Sum
+from frappe.query_builder.functions import Sum
 from frappe.utils import flt, formatdate, getdate
 
 from india_compliance.gst_india.utils import (
@@ -1005,8 +1005,6 @@ class GSTR11A11BData:
             conditions.append(
                 self.gl_entry.posting_date >= getdate(self.filters.get("from_date"))
             )
-        else:
-            conditions.append(IfNull(self.pe.unallocated_amount, 0) > 0)
 
         if self.filters.get("to_date"):
             conditions.append(
