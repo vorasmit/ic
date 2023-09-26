@@ -1,9 +1,9 @@
 # Copyright (c) 2013, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
-
-
 import json
 from datetime import date
+
+from pypika.terms import Case
 
 import frappe
 from frappe import _
@@ -309,14 +309,7 @@ class Gstr1Report:
 
     def get_11A_11B_data(self):
         report = GSTR11A11BData(self.filters, self.gst_accounts)
-        records = report.get_data() or []
-
-        data = {}
-        for entry in records:
-            data.setdefault((entry.place_of_supply, entry.rate), [0.0, 0.0])
-
-            data[(entry.place_of_supply, entry.rate)][0] += entry.paid_amount
-            data[(entry.place_of_supply, entry.rate)][1] += entry.cess_amount
+        data = report.get_data()
 
         for key, value in data.items():
             row = [key[0], key[1], value[0], value[1]]
@@ -924,28 +917,36 @@ class GSTR11A11BData:
         self.filters = filters
 
         self.pe = frappe.qb.DocType("Payment Entry")
-        self.pe_taxes = frappe.qb.DocType("Advance Taxes and Charges")
+        self.pe_ref = frappe.qb.DocType("Payment Entry Reference")
         self.gl_entry = frappe.qb.DocType("GL Entry")
         self.gst_accounts = gst_accounts
 
     def get_data(self):
         if self.filters.get("type_of_business") == "Advances":
-            return self.get_11A_data()
+            records = self.get_11A_data()
 
         elif self.filters.get("type_of_business") == "Adjustment":
-            return self.get_11B_data()
+            records = self.get_11B_data()
+
+        return self.process_data(records, self.filters.get("type_of_business"))
 
     def get_11A_data(self):
         return (
             self.get_query()
             .select(
-                Sum(self.gl_entry.credit_in_account_currency).as_("cess_amount"),
+                Sum(self.pe.paid_amount).as_("taxable_value"),
+                Sum(
+                    Case()
+                    .when(
+                        self.gl_entry.account == self.gst_accounts.cess_account,
+                        self.gl_entry.credit_in_account_currency,
+                    )
+                    .else_(0)
+                ).as_("cess_amount"),
             )
             .where(self.gl_entry.credit_in_account_currency > 0)
             .groupby(
                 self.pe.place_of_supply,
-                self.gl_entry.account,
-                self.pe_taxes.rate,
             )
             .run(as_dict=True)
         )
@@ -953,14 +954,23 @@ class GSTR11A11BData:
     def get_11B_data(self):
         query = (
             self.get_query()
+            .join(self.pe_ref)
+            .on(self.pe_ref.name == self.gl_entry.voucher_detail_no)
             .select(
-                Sum(self.gl_entry.debit_in_account_currency).as_("cess_amount"),
+                Sum(self.pe_ref.allocated_amount).as_("taxable_value"),
+                Sum(self.gl_entry.debit_in_account_currency).as_("gst_allocated"),
+                Sum(
+                    Case()
+                    .when(
+                        self.gl_entry.account == self.gst_accounts.cess_account,
+                        self.gl_entry.debit_in_account_currency,
+                    )
+                    .else_(0)
+                ).as_("cess_amount"),
             )
             .where(self.gl_entry.debit_in_account_currency > 0)
             .groupby(
                 self.pe.place_of_supply,
-                self.gl_entry.account,
-                self.pe_taxes.rate,
             )
         )
 
@@ -971,47 +981,50 @@ class GSTR11A11BData:
             frappe.qb.from_(self.gl_entry)
             .join(self.pe)
             .on(self.pe.name == self.gl_entry.voucher_no)
-            .join(self.pe_taxes)
-            .on(self.pe_taxes.parent == self.pe.name)
             .select(
-                self.gl_entry.posting_date,
-                self.pe.name.as_("payment_entry"),
-                self.pe_taxes.rate,
-                self.pe.paid_amount.as_("paid_amount"),
+                Sum(self.gl_entry.credit_in_account_currency).as_("gst_paid"),
                 self.pe.place_of_supply,
             )
             .where(Criterion.all(self.get_conditions()))
         )
 
     def get_conditions(self):
+        gst_accounts_list = [
+            account_head for account_head in self.gst_accounts.values() if account_head
+        ]
+
         conditions = []
 
         conditions.append(self.gl_entry.is_cancelled == 0)
         conditions.append(self.gl_entry.voucher_type == "Payment Entry")
         conditions.append(self.gl_entry.company == self.filters.get("company"))
-        conditions.append(self.gl_entry.account == self.gst_accounts.cess_account)
-
-        if self.filters.get("company_address"):
-            conditions.append(
-                self.pe.company_address == self.filters.get("company_address")
-            )
+        conditions.append(self.gl_entry.account.isin(gst_accounts_list))
+        conditions.append(
+            self.gl_entry.posting_date[
+                self.filters.get("from_date") : self.filters.get("to_date")
+            ]
+        )
 
         if self.filters.get("company_gstin"):
             conditions.append(
                 self.gl_entry.company_gstin == self.filters.get("company_gstin")
             )
 
-        if self.filters.get("from_date"):
-            conditions.append(
-                self.gl_entry.posting_date >= getdate(self.filters.get("from_date"))
-            )
-
-        if self.filters.get("to_date"):
-            conditions.append(
-                self.gl_entry.posting_date <= getdate(self.filters.get("to_date"))
-            )
-
         return conditions
+
+    def process_data(self, records, type):
+        data = {}
+        for entry in records:
+            tax_amount = entry.gst_paid if type == "Advances" else entry.gst_allocated
+            total_tax_amount = tax_amount - entry.cess_amount
+            tax_rate = round(((total_tax_amount / entry.taxable_value) * 100) * 2)
+
+            data.setdefault((entry.place_of_supply, tax_rate), [0.0, 0.0])
+
+            data[(entry.place_of_supply, tax_rate)][0] += entry.taxable_value
+            data[(entry.place_of_supply, tax_rate)][1] += entry.cess_amount
+
+        return data
 
 
 @frappe.whitelist()
