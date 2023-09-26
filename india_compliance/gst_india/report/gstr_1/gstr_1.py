@@ -933,29 +933,8 @@ class GSTR11A11BData:
     def get_11A_data(self):
         return (
             self.get_query()
-            .select(
-                self.pe.paid_amount.as_("taxable_value"),
-                Sum(
-                    Case()
-                    .when(
-                        self.gl_entry.account != self.gst_accounts.cess_account,
-                        self.gl_entry.credit_in_account_currency,
-                    )
-                    .else_(0)
-                ).as_("tax_amount"),
-                Sum(
-                    Case()
-                    .when(
-                        self.gl_entry.account == self.gst_accounts.cess_account,
-                        self.gl_entry.credit_in_account_currency,
-                    )
-                    .else_(0)
-                ).as_("cess_amount"),
-            )
-            .where(self.gl_entry.credit_in_account_currency > 0)
-            .groupby(
-                self.pe.name,
-            )
+            .select(self.pe.paid_amount.as_("taxable_value"))
+            .groupby(self.pe.name)
             .run(as_dict=True)
         )
 
@@ -964,13 +943,31 @@ class GSTR11A11BData:
             self.get_query()
             .join(self.pe_ref)
             .on(self.pe_ref.name == self.gl_entry.voucher_detail_no)
+            .select(self.pe_ref.allocated_amount.as_("taxable_value"))
+            .groupby(self.gl_entry.voucher_detail_no)
+        )
+
+        return query.run(as_dict=True)
+
+    def get_query(self):
+        cr_or_dr = (
+            "credit" if self.filters.get("type_of_business") == "Advances" else "debit"
+        )
+        cr_or_dr_amount_field = getattr(
+            self.gl_entry, f"{cr_or_dr}_in_account_currency"
+        )
+
+        return (
+            frappe.qb.from_(self.gl_entry)
+            .join(self.pe)
+            .on(self.pe.name == self.gl_entry.voucher_no)
             .select(
-                self.pe_ref.allocated_amount.as_("taxable_value"),
+                self.pe.place_of_supply,
                 Sum(
                     Case()
                     .when(
                         self.gl_entry.account != self.gst_accounts.cess_account,
-                        self.gl_entry.debit_in_account_currency,
+                        cr_or_dr_amount_field,
                     )
                     .else_(0)
                 ).as_("tax_amount"),
@@ -978,28 +975,13 @@ class GSTR11A11BData:
                     Case()
                     .when(
                         self.gl_entry.account == self.gst_accounts.cess_account,
-                        self.gl_entry.debit_in_account_currency,
+                        cr_or_dr_amount_field,
                     )
                     .else_(0)
                 ).as_("cess_amount"),
             )
-            .where(self.gl_entry.debit_in_account_currency > 0)
-            .groupby(
-                self.gl_entry.voucher_detail_no,
-            )
-        )
-
-        return query.run(as_dict=True)
-
-    def get_query(self):
-        return (
-            frappe.qb.from_(self.gl_entry)
-            .join(self.pe)
-            .on(self.pe.name == self.gl_entry.voucher_no)
-            .select(
-                self.pe.place_of_supply,
-            )
             .where(Criterion.all(self.get_conditions()))
+            .where(cr_or_dr_amount_field > 0)
         )
 
     def get_conditions(self):
