@@ -934,7 +934,15 @@ class GSTR11A11BData:
         return (
             self.get_query()
             .select(
-                Sum(self.pe.paid_amount).as_("taxable_value"),
+                self.pe.paid_amount.as_("taxable_value"),
+                Sum(
+                    Case()
+                    .when(
+                        self.gl_entry.account != self.gst_accounts.cess_account,
+                        self.gl_entry.credit_in_account_currency,
+                    )
+                    .else_(0)
+                ).as_("tax_amount"),
                 Sum(
                     Case()
                     .when(
@@ -946,7 +954,7 @@ class GSTR11A11BData:
             )
             .where(self.gl_entry.credit_in_account_currency > 0)
             .groupby(
-                self.pe.place_of_supply,
+                self.pe.name,
             )
             .run(as_dict=True)
         )
@@ -957,8 +965,15 @@ class GSTR11A11BData:
             .join(self.pe_ref)
             .on(self.pe_ref.name == self.gl_entry.voucher_detail_no)
             .select(
-                Sum(self.pe_ref.allocated_amount).as_("taxable_value"),
-                Sum(self.gl_entry.debit_in_account_currency).as_("gst_allocated"),
+                self.pe_ref.allocated_amount.as_("taxable_value"),
+                Sum(
+                    Case()
+                    .when(
+                        self.gl_entry.account != self.gst_accounts.cess_account,
+                        self.gl_entry.debit_in_account_currency,
+                    )
+                    .else_(0)
+                ).as_("tax_amount"),
                 Sum(
                     Case()
                     .when(
@@ -970,7 +985,7 @@ class GSTR11A11BData:
             )
             .where(self.gl_entry.debit_in_account_currency > 0)
             .groupby(
-                self.pe.place_of_supply,
+                self.gl_entry.voucher_detail_no,
             )
         )
 
@@ -982,7 +997,6 @@ class GSTR11A11BData:
             .join(self.pe)
             .on(self.pe.name == self.gl_entry.voucher_no)
             .select(
-                Sum(self.gl_entry.credit_in_account_currency).as_("gst_paid"),
                 self.pe.place_of_supply,
             )
             .where(Criterion.all(self.get_conditions()))
@@ -1015,9 +1029,7 @@ class GSTR11A11BData:
     def process_data(self, records, type):
         data = {}
         for entry in records:
-            tax_amount = entry.gst_paid if type == "Advances" else entry.gst_allocated
-            total_tax_amount = tax_amount - entry.cess_amount
-            tax_rate = round(((total_tax_amount / entry.taxable_value) * 100) * 2)
+            tax_rate = round(((entry.tax_amount / entry.taxable_value) * 100))
 
             data.setdefault((entry.place_of_supply, tax_rate), [0.0, 0.0])
 
