@@ -1217,16 +1217,16 @@ def get_advances_json(data, gstin):
                 "csamt": flt(item.get("cess_amount"), 2),
             }
 
+            tax_amount = (itms["ad_amount"] * itms["rt"]) / 100
             if supply_type == "INTRA":
-                tax_amount = ((itms["ad_amount"] * itms["rt"]) / 100) / 2
                 itms.update(
                     {
-                        "samt": flt(tax_amount, 2),
-                        "camt": flt(tax_amount, 2),
+                        "samt": flt(tax_amount / 2, 2),
+                        "camt": flt(tax_amount / 2, 2),
                     }
                 )
             else:
-                itms["iamt"] = flt((itms["ad_amount"] * itms["rt"]) / 100, 2)
+                itms["iamt"] = flt(tax_amount, 2)
 
             row["itms"].append(itms)
         out.append(row)
