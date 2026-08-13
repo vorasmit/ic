@@ -186,8 +186,13 @@ def round_money(row, fields):
 
 
 def sum_money(row, fields):
-    """Rounded total of the named amounts. A blank counts as nothing."""
+    """Rounded total of the named amounts on one row. A blank counts as nothing."""
     return flt(sum(row.get(field) or 0 for field in fields), 2)
+
+
+def sum_column(rows, field):
+    """Rounded total of one amount over many rows. A blank counts as nothing."""
+    return flt(sum(row.get(field) or 0 for row in rows), 2)
 
 
 def add_item_totals(row, items, totals):
